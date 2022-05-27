@@ -41,12 +41,23 @@ class Presentation(models.Model):
         related_name="presentations",
         on_delete=models.PROTECT,
     )
-
+    
     conference = models.ForeignKey(
         "events.Conference",
         related_name="presentations",
         on_delete=models.CASCADE,
     )
+
+    def set_status(self, name):
+        status = Status.objects.get(name=name)
+        self.status = status
+        self.save()
+
+    def approve(self):
+        return self.set_status("APPROVED")
+
+    def reject(self):
+        return self.set_status("REJECTED")
 
     def get_api_url(self):
         return reverse("api_show_presentation", kwargs={"pk": self.pk})
