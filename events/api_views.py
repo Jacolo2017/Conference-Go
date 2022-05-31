@@ -14,7 +14,6 @@ class LocationDetailEncoder(ModelEncoder):
         "room_count",
         "created",
         "updated",
-        "state",
     ]
 
     def get_extra_data(self, o):
@@ -49,11 +48,10 @@ class ConferenceDetailEncoder(ModelEncoder):
 
 class ConferenceListEncoder(ModelEncoder):
     model = Conference
-    properties = [
-        "name",
-    ]
+    properties = ["name"]
 
 
+@require_http_methods(["GET", "POST"])
 def api_list_conferences(request):
     """
     Lists the conference names and the link to the conference.
@@ -73,21 +71,28 @@ def api_list_conferences(request):
         ]
     }
     """
-    conferences = Conference.objects.all()
-    return JsonResponse(
-        {"conferences": conferences},
-        encoder=ConferenceListEncoder,
-    )
-    # response = []
-    # conferences = Conference.objects.all()
-    # for conference in conferences:
-    #     response.append(
-    #         {
-    #             "name": conference.name,
-    #             "href": conference.get_api_url(),
-    #         }
-    #     )
-    # return JsonResponse({"conferences": response})
+    if request.method == "GET":
+        conferences = Conference.objects.all()
+        return JsonResponse(
+            {"conferences": conferences},
+            encoder=ConferenceListEncoder,
+        )
+    else:
+        content = json.loads(request.body)
+        try:
+            location = Location.objects.get(id=content["location"])
+            content["location"] = location
+        except Location.DoesNotExist:
+            return JsonResponse(
+                {"message": "Invalid location id"},
+                status=400,
+            )
+        conference = Conference.objects.create(**content)
+        return JsonResponse(
+            conference,
+            encoder=ConferenceDetailEncoder,
+            safe=False
+        )
 
 
 def api_show_conference(request, pk):
@@ -144,7 +149,7 @@ def api_list_locations(request):
     }
     """
     # response = []
-    if require_http_methods(["GET"]):
+    if request.method == "GET":
         locations = Location.objects.all()
     # for location in locations:
     #     response.append({
@@ -169,14 +174,15 @@ def api_list_locations(request):
         picture = get_photo(city, state)
         content.update(picture)
 
-        location = Location.objects.create(**content)
-        return JsonResponse(
-            location,
-            encoder=LocationDetailEncoder,
-            safe=False
-        )
+        # location = Location.objects.create(**content)
+        # return JsonResponse(
+        #     location,
+        #     encoder=LocationDetailEncoder,
+        #     safe=False
+        # )
 
 
+@require_http_methods(["DELETE", "GET", "PUT"])
 def api_show_location(request, pk):
     """
     Returns the details for the Location model specified
@@ -194,10 +200,31 @@ def api_show_location(request, pk):
         "state": the two-letter abbreviation for the state,
     }
     """
-    location = Location.objects.get(id=pk)
-    return JsonResponse(
-        location,
-        encoder=LocationDetailEncoder,
-        safe=False,
-
-    )
+    if request.method == "GET":
+        location = Location.objects.get(id=pk)
+        return JsonResponse(
+            location,
+            encoder=LocationDetailEncoder,
+            safe=False,
+        )
+    elif request.method == "DELETE":
+        count, _ = Location.objects.filter(id=pk).delete()
+        return JsonResponse({"deleted": count > 0})
+    else:
+        content = json.loads(request.body)
+        try:
+            if "state" in content:
+                state = State.objects.get(abbreviation=content["state"])
+                content["state"] = state
+        except State.DoesNotExist:
+            return JsonResponse(
+                {"message": "Invalid state abbreviation"},
+                status=400,
+                )
+        Location.objects.filter(id=pk).update(**content)
+        location = Location.objects.filter(id=pk)
+        return JsonResponse(
+            location,
+            encoder=LocationDetailEncoder,
+            safe=False,
+        )
