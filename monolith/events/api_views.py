@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from common.json import ModelEncoder
 from django.views.decorators.http import require_http_methods
 from .models import Conference, Location, State
-from .acls import get_photo
+from .acls import get_photo, get_weather_data
 
 
 class LocationDetailEncoder(ModelEncoder):
@@ -20,6 +20,7 @@ class LocationDetailEncoder(ModelEncoder):
         return {
             "state": o.state.abbreviation,
             "picture_url": get_photo(o.state.name, o.city),
+            "weather": get_weather_data(o.state.name, o.city),
         }
 
 
