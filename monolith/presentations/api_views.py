@@ -1,9 +1,72 @@
+from pyexpat.errors import messages
 from django.http import JsonResponse
 from common.json import ModelEncoder
+from events.api_views import ConferenceListEncoder
 from .models import Presentation
+from django.views.decorators.http import require_http_methods
+import pika
+import json
 
 
-class PresentaationDetailEncoder(ModelEncoder):
+def send_message(queue_title, data):
+    parameters = pika.ConnectionParameters(host="rabbitmq")
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    channel.queue_declare(queue=queue_title)
+    channel.basic_publish(
+        exchange="",
+        routing_key="queue_title",
+        body=json.dumps(data)
+    )
+    connection.close()
+
+
+@require_http_methods(["PUT"])
+def api_reject_presentation(request, pk):
+    presentation = Presentation.objects.get(id=pk)
+    presentation.reject()
+    # parameters = pika.ConnectionParameters(host="rabbitmq")
+    # connection = pika.BlockingConnection(parameters)
+    # channel = connection.channel()
+    # channel.queue_declare(queue="presentation_rejection")
+    # channel.basic_publish(
+    #     exchange="",
+    #     routing_key="presentation_rejection",
+    #     body=json.dumps({
+    rej_message = {
+            "presenter_name": presentation.presenter_name,
+            "presenter_email": presentation.presenter_email,
+            "title": presentation.title,
+        }
+    send_message("presentation_rejection", rej_message)
+    return JsonResponse(
+        presentation,
+        encoder=PresentationDetailEncoder,
+        safe=False,
+    )
+
+
+
+
+
+@require_http_methods(["PUT"])
+def api_approve_presentation(request, pk):
+    presentation = Presentation.objects.get(id=pk)
+    presentation.approve()
+    app_message = {
+            "presenter_name": presentation.presenter_name,
+            "presenter_email": presentation.presenter_email,
+            "title": presentation.title,
+            }
+    send_message("presentation_approval", app_message)
+    return JsonResponse(
+        presentation,
+        encoder=PresentationDetailEncoder,
+        safe=False,
+    )
+
+
+class PresentationDetailEncoder(ModelEncoder):
     model = Presentation
     properties = [
         "presenter_name",
@@ -11,16 +74,24 @@ class PresentaationDetailEncoder(ModelEncoder):
         "presenter_email",
         "title",
         "synopsis",
-        # "created",
-        # "status",
-        # "conference", {
-        #     "name",
-        #     "href",
-        # }
+        "created",
+        "status",
+        "conference",
     ]
+    encoders = {
+        "conference": ConferenceListEncoder(),
+    }
+
+    def get_extra_data(self, o):
+        return{"status": o.status.name}
 
 
-def api_list_presentations(request, conference_id):
+class PresentationListencoder(ModelEncoder):
+    model =Presentation
+    properties = ["title", "status", "import_href"]
+
+
+def api_list_presentations(request):
     """
     Lists the presentation titles and the link to the
     presentation for the specified conference id.
@@ -48,7 +119,7 @@ def api_list_presentations(request, conference_id):
             "status": p.status.name,
             "href": p.get_api_url(),
         }
-        for p in Presentation.objects.filter(conference=conference_id)
+        for p in Presentation.objects.get(conference=conference_id)
     ]
     return JsonResponse({"presentations": presentations})
 
@@ -92,6 +163,6 @@ def api_show_presentation(request, pk):
             "href": presentation.conference.get_api_url(),
             },
         },
-        PresentaationDetailEncoder,
+        PresentationDetailEncoder,
         safe=False,
     )
