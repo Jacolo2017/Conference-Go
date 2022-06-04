@@ -29,7 +29,7 @@ def update_account_vo(ch, method, properties, body):
 #   is_active = content["is_active"]
     updated_string = data["updated"]
 #   updated_string = content["updated"]
-    updated = datetime.fromisoformat(updated_string)
+    updated = datetime.isoformat(updated_string)
 #   updated = convert updated_string from ISO string to datetime
 #   if is_active:
     if data["is_active"]==True:
@@ -45,11 +45,11 @@ def update_account_vo(ch, method, properties, body):
 # Based on the reference code at
 #   https://github.com/rabbitmq/rabbitmq-tutorials/blob/master/python/receive_logs.py
 # infinite loop
-while:
+while True:
 #   try
     try:
 #       create the pika connection parameters
-        parameters = pika.ConnectionParameters(host=rabbitmq)
+        parameters = pika.ConnectionParameters(host='rabbitmq')
 #       create a blocking connection with the parameters
         connection = pika.BlockingConnection(parameters)
 #       open a channel
@@ -65,7 +65,7 @@ while:
 #       do a basic_consume for the queue name that calls
 #           function above
         channel.basic_consume(
-            queue="queue_name",
+            queue=queue_name,
             on_message_callback=update_account_vo,
             auto_ack=True,
         )

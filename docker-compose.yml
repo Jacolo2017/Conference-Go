@@ -39,4 +39,4 @@ services:
       context: ./attendees_microservice
       dockerfile: ./Dockerfile.account_info.dev
     volumes:
-      - ./attendees_account_info:/app
+      - ./attendees_microservice:/app

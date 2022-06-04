@@ -23,10 +23,9 @@ class AttendeeDetailEncoder(ModelEncoder):
     }
 
     def get_extra_data(self, o):
-        if AccountVO.count.email == o.email:
-            return{"has_account": True > 0}
-        else:
-            return{"has_account": False}
+        count = len(AccountVO.objects.filter(email=o.email))
+        return{"has_account": count > 0}
+
 
 class AttendeeListEncoder(ModelEncoder):
     model = Attendee

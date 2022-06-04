@@ -13,7 +13,7 @@ class AccountVO(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     is_active = models.BooleanField(null=True)
-    updated = models.Date.isoformat()
+    updated = models.CharField(max_length=60)
 
 
 class Attendee(models.Model):
